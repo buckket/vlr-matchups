@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>vlr-matchups.net</title>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="description" content="Which Valorant streamer is playing against another one?"/>
+    <meta property="og:title" content="vlr-matchups.net"/>
+    <meta property="og:description" content="Which Valorant streamer is playing against another one?"/>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+
+    <style>
+        .playing-with {
+            background-color: rgba(0, 255, 0, 0.03);
+        }
+
+        .playing-against {
+            background-color: rgba(255, 0, 0, 0.03);
+        }
+
+        .card a {
+            color: black;
+        }
+
+        nav {
+            color: white;
+            font-family: 'Operator Mono', 'Source Sans Pro', Menlo, Monaco, Consolas, Courier New, monospace;
+            padding: 1em;
+            background-color: rgba(221, 220, 220, 0.51);
+            box-shadow: 0 0 5px rgba(0, 0, 0, .5);
+        }
+    </style>
+</head>
+
+<body>
+
+<nav class="level">
+    <!-- Left side -->
+    <div class="level-left">
+        <div class="level-item">
+            <p class="subtitle is-4">
+                <a href="/"><strong>vlr-matchups.net</strong></a>
+            </p>
+        </div>
+    </div>
+    <div class="level-item has-text-centered">
+        <span style="color: #485fc7">Who’s playing whom?</span>
+    </div>
+
+    <!-- Right side -->
+    <div class="level-right">
+        <p class="level-item"><a href="about.html">About</a></p>
+        <p class="level-item"><a href="https://github.com/buckket/vlr-matchups">Source Code</a></p>
+    </div>
+</nav>
+
+
+<div class="container" style="margin-top: 3em;">
+    <div class="columns is-centered">
+        <div class="column is-7">
+            <div class="box">
+                <div class="content">
+                    <h1>About</h1>
+                    <p>
+                        Twitch, OpenCV, Tesseract, Python, a christmas weekend project, […]
+                    </p>
+                    <p>
+                        In short this website processes the most viewed Valorant streams on Twitch.tv and tries to figure out
+                        which persons are either playing with, or against each other, just by looking at the score and team composition.
+                        The results are then displayed here.
+                    </p>
+                    <p>
+                        Source code will follow as soon as it got cleaned up. lel.
+                    </p>
+                    <h2>Limitations</h2>
+                    <p>
+                    <ul>
+                        <li>
+                            Currently, the search is limited to the 100 most viewed <del>English</del> streams.
+                        </li>
+                        <li>
+                            The scraper expects the normal/correct aspect ratio of all on-screen assets.
+                            If someone is playing with weird resolutions or aspect ratios the scraper is having
+                            troubles.
+                            Could be fixed by trying to figure out which resolution is used and compensating afterwards.
+                        </li>
+                        <li>
+                            If information is obscured by overlays there's no chance to ever retrieve it. Obviously.
+                        </li>
+                        <li>
+                            Haven’t gone through the trouble to find the game screen inside another container.
+                            So if the streamer is using borders or some fancy Picture in Picture magic we’re out of
+                            luck, for now.
+                        </li>
+                    </ul>
+                    </p>
+                    <h2>Performance</h2>
+                    <p>
+                        It’s written in Python, the OpenCV part is terribly slow, the rest is okay-ish.
+                    </p>
+                    <p>
+                        How slow? About one minute to process 100 streams on a dusty old 2.7 GHz Intel i5. Problem is:
+                        Only one core gets used. Ever.
+                        One could easily shift all the CPU and memory intensive parts to a separate C++ program later
+                        and make use of all cores, but for ease of development it was best to stay within Python for as
+                        long as possible.
+                    </p>
+                    <h2>Why</h2>
+                    <p>
+                        Cause I find it amusing watching a match from both sides simultaneously. Also: It was fun
+                        developing.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<footer style="padding: 2em;">
+    <div class="content has-text-centered">buckket // 2022 // contact: felix+vlr at buckket.org</div>
+</footer>
+
+</body>
+</html>

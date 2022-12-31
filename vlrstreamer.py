@@ -317,14 +317,14 @@ async def get_game_id():
     return game.id
 
 
-async def get_streamer_list(game_id, lang, limit):
+async def get_streamer_dict(game_id, lang, limit):
     twitch = await Twitch(settings.TWITCH_APP_ID, settings.TWITCH_APP_SECRET)
     # streams_gen = twitch.get_streams(game_id=game_id, language=lang)
     streams_gen = twitch.get_streams(game_id=game_id)
 
-    streams = set()
+    streams = {}
     async for stream in streams_gen:
-        streams.add(Streamer(stream.user_login, stream.viewer_count, stream.language))
+        streams[stream.user_login] = Streamer(stream.user_login, stream.viewer_count, stream.language)
         if len(streams) > limit:
             return streams
 
@@ -355,7 +355,8 @@ if __name__ == '__main__':
 
     while True:
         old_streamer_list = {x.streamer for x in games}
-        new_streamer_list = asyncio.run(get_streamer_list(game_id, lang="en", limit=100))
+        new_streamer_dict = asyncio.run(get_streamer_dict(game_id, lang="en", limit=100))
+        new_streamer_list = {x for x in new_streamer_dict.values()}
 
         to_remove = old_streamer_list - new_streamer_list
         print("Removing: " + ", ".join(x.name for x in to_remove))
@@ -366,7 +367,12 @@ if __name__ == '__main__':
         to_add = new_streamer_list - old_streamer_list
         print("Adding: " + ", ".join(x.name for x in to_add))
 
-        games = [x for x in games if x.streamer in to_keep]
+        games_new = []
+        for game in games:
+            if game.streamer in to_keep:
+                game.streamer = new_streamer_dict[game.streamer.name]
+                games_new.append(game)
+        games = games_new
         games.extend([Game(x) for x in to_add])
 
         asyncio.run(fetch_images_with_concurrency(20, games))
@@ -377,7 +383,6 @@ if __name__ == '__main__':
             game.ocr(tess_api)
             game.update_agents()
             game.unload_image()
-
             game.print()
             game.reset_playing()
             if not game.ocr_success:

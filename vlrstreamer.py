@@ -163,14 +163,14 @@ class Game:
             self.update_agents(threshold + 0.05)
 
     def ocr(self, tess_api):
-        img = cv2.cvtColor(self.img, cv2.COLOR_BGR2GRAY)
-
-        text = img[30:70, 750:-750]
+        text = self.img[30:70, 750:-750]
         text = cv2.resize(text, (text.shape[1] * 2, text.shape[0] * 2))
 
+        text = cv2.GaussianBlur(text, (3, 3), 0)
         kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
         text = cv2.filter2D(text, -1, kernel)
-        text = cv2.bilateralFilter(text, 5, 20, 20)
+        text = cv2.bilateralFilter(text, 9, 20, 20)
+        text = cv2.cvtColor(text, cv2.COLOR_BGR2GRAY)
 
         def run_pytesseract(img_tesseract):
             tess_api.SetImage(Image.fromarray(img_tesseract))
@@ -207,9 +207,9 @@ class Game:
         img_own = text[:, :300]
         img_enemy = text[:, -300:]
 
-        own = binary_threshold(img_own, 225)
+        own = binary_threshold(img_own, 223)
         if own:
-            enemy = binary_threshold(img_enemy, 225)
+            enemy = binary_threshold(img_enemy, 223)
         else:
             enemy = ""
 

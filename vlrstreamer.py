@@ -189,12 +189,12 @@ class Game:
 
         def binary_threshold(img, threshold=210, retries=0):
             if retries > 5 or threshold > 254:
-                return ""
+                return "", 0
 
             _, text_bin = cv2.threshold(img, threshold, 255, cv2.THRESH_BINARY_INV)
 
             if np.mean(text_bin) >= 255:
-                return ""
+                return "", 0
 
             kernel = np.ones((3, 3), np.uint8)
             text_bin = cv2.erode(text_bin, kernel, iterations=1)
@@ -202,18 +202,36 @@ class Game:
             tess = run_pytesseract(text_bin)
             if not tess:
                 return binary_threshold(img, threshold + 4, retries + 1)
-            return tess
+
+            c_x = 0
+            try:
+                M = cv2.moments(~text_bin)
+                c_x = int(M["m10"] / M["m00"])
+            except ZeroDivisionError:
+                return "", 0
+
+            return tess, c_x
 
         img_own = text[:, :300]
         img_enemy = text[:, -300:]
 
-        own = binary_threshold(img_own, 223)
+        own, own_x = binary_threshold(img_own, 223)
         if own:
-            enemy = binary_threshold(img_enemy, 223)
+            enemy, enemy_x = binary_threshold(img_enemy, 223)
         else:
             enemy = ""
 
         ret = self.update_score(own, enemy)
+        if ret:
+            correction = round(abs(own_x - enemy_x) * 0.1) * 20
+            if correction > 20:
+                logging.info("Images is stretched,  resizing")
+                self.img = cv2.resize(self.img, (1920 - correction, 1080), interpolation=cv2.INTER_AREA)
+                self.img = cv2.copyMakeBorder(self.img, 0, 0,
+                                              correction // 2,
+                                              correction // 2,
+                                              cv2.BORDER_CONSTANT,
+                                              value=(0, 0, 0))
         if ret and not self.ocr_success:
             self.ocr_success = True
             self.ocr_fails = 0

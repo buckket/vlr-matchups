@@ -135,6 +135,9 @@ Which makes this task very simple, as long as performance is not a major concern
 I just scraped all the agent images from the Internet and
 used [template matching](https://docs.opencv.org/4.x/df/dfb/group__imgproc__object.html#ga586ebfb0a7fb604b35a23d85391329be).
 
+![Agent detection](agents/astra.webp)
+
+
 Each template (agent image) is slid across the input and a value representing the similarity of the overlapping images
 is calculated for every possible position.
 

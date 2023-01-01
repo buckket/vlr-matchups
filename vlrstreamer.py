@@ -54,6 +54,8 @@ class Game:
         self.ocr_success = False
         self.ocr_fails = 0
 
+        self.correction = 0
+
         self.score_own = 0
         self.score_enemy = 0
 
@@ -127,10 +129,16 @@ class Game:
         if not self.ocr_success:
             return
 
-        y, x = self.img.shape[:2]
+        header = self.img[0:100, :]
+        y, x = header.shape[:2]
 
-        img_own = self.img[0:100, 350:x // 2 - 80]
-        img_enemy = cv2.flip(self.img[0:100, x // 2 + 80:x - 350], 1)
+        if self.correction > 20:
+            logging.info("Images is stretched, resizing")
+            header = cv2.resize(header, (1920 - self.correction, y), interpolation=cv2.INTER_AREA)
+            y, x = header.shape[:2]
+
+        img_own = header[:, (350 - self.correction // 2):x // 2 - 80]
+        img_enemy = cv2.flip(header[:, x // 2 + 80:x - (350 - self.correction // 2)], 1)
 
         for agent in AGENTS:
             w, h = agent.img.shape[:-1]
@@ -142,7 +150,7 @@ class Game:
             #    print("{}: {}".format(agent.name, max_val))
 
             if max_val >= threshold and max_val != np.inf:
-                cv2.rectangle(img_own, max_loc, (max_loc[0] + w, max_loc[1] + h), (0, 0, 255), 2)
+                # cv2.rectangle(img_own, max_loc, (max_loc[0] + w, max_loc[1] + h), (0, 0, 255), 2)
                 self.team_own.add(agent.name)
 
             res = cv2.matchTemplate(img_enemy, agent.img, cv2.TM_CCOEFF_NORMED, None, agent.mask)
@@ -155,12 +163,12 @@ class Game:
                 # cv2.rectangle(img_enemy, max_loc, (max_loc[0] + w, max_loc[1] + h), (0, 0, 255), 2)
                 self.team_enemy.add(agent.name)
 
-        if len(self.team_own) > 5 or len(self.team_enemy) > 5:
-            logging.warning("More than 5 agents detected, resetting")
-            logging.debug(self.team_own)
-            logging.debug(self.team_enemy)
-            self.reset_team()
-            self.update_agents(threshold + 0.05)
+            if len(self.team_own) > 5 or len(self.team_enemy) > 5:
+                logging.warning("More than 5 agents detected, resetting")
+                logging.debug(self.team_own)
+                logging.debug(self.team_enemy)
+                self.reset_team()
+                self.update_agents(threshold + 0.05)
 
     def ocr(self, tess_api):
         text = self.img[30:70, 750:-750]
@@ -169,7 +177,7 @@ class Game:
         text = cv2.GaussianBlur(text, (3, 3), 0)
         kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
         text = cv2.filter2D(text, -1, kernel)
-        text = cv2.bilateralFilter(text, 9, 20, 20)
+        text = cv2.bilateralFilter(text, 5, 15, 15)
         text = cv2.cvtColor(text, cv2.COLOR_BGR2GRAY)
 
         def run_pytesseract(img_tesseract):
@@ -215,23 +223,15 @@ class Game:
         img_own = text[:, :300]
         img_enemy = text[:, -300:]
 
-        own, own_x = binary_threshold(img_own, 223)
+        own, own_x = binary_threshold(img_own, 225)
         if own:
-            enemy, enemy_x = binary_threshold(img_enemy, 223)
+            enemy, enemy_x = binary_threshold(img_enemy, 225)
         else:
             enemy = ""
 
         ret = self.update_score(own, enemy)
         if ret:
-            correction = round(abs(own_x - enemy_x) * 0.1) * 20
-            if correction > 20:
-                logging.info("Images is stretched,  resizing")
-                self.img = cv2.resize(self.img, (1920 - correction, 1080), interpolation=cv2.INTER_AREA)
-                self.img = cv2.copyMakeBorder(self.img, 0, 0,
-                                              correction // 2,
-                                              correction // 2,
-                                              cv2.BORDER_CONSTANT,
-                                              value=(0, 0, 0))
+            self.correction = round(abs(own_x - enemy_x) * 0.1) * 20
         if ret and not self.ocr_success:
             self.ocr_success = True
             self.ocr_fails = 0
@@ -356,6 +356,9 @@ if __name__ == '__main__':
     while True:
         old_streamer_list = {x.streamer for x in games}
         new_streamer_dict = asyncio.run(get_streamer_dict(game_id, lang="en", limit=100))
+        # new_streamer_dict = {x.removesuffix(".jpg"): Streamer(x.removesuffix(".jpg"), 0, "en") for x in
+        #                     glob.glob("*.jpg", root_dir="tmp")}
+
         new_streamer_list = {x for x in new_streamer_dict.values()}
 
         to_remove = old_streamer_list - new_streamer_list

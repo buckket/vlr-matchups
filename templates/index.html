@@ -23,6 +23,22 @@
             color: black;
         }
 
+        .viewers {
+            position: absolute;
+            z-index: 2;
+            bottom: 10px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, .7);
+            padding: 3px 5px;
+            border-radius: 3px;
+            font-size: 90%;
+            color: rgb(241, 241, 241);
+        }
+
+        .language {
+            color: rgba(0, 0, 0, 0.75)
+        }
+
         nav {
             color: white;
             font-family: 'Operator Mono', 'Source Sans Pro', Menlo, Monaco, Consolas, Courier New, monospace;
@@ -67,6 +83,7 @@
                             <img src="https://static-cdn.jtvnw.net/previews-ttv/live_user_{{ game.streamer.name }}-960x540.jpg"/>
                         </figure>
                     </a>
+                    <span class="viewers">{{ game.streamer.view_count }} viewers</span>
                 </div>
                 <div class="card-content">
                     <div class="media">
@@ -82,7 +99,7 @@
                                     href="https://www.twitch.tv/{{ game.streamer.name }}"
                                     target="_blank">{{ game.streamer.name }}</a>
                             </p>
-                            <p class="subtitle is-6">Viewers: {{ game.streamer.view_count }}</p>
+                            <p class="subtitle is-6 language">{{ game.streamer.language_name }}</p>
                         </div>
                     </div>
                     <div class="content">

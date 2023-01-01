@@ -6,6 +6,7 @@ import os
 import twitchAPI.helper
 from jinja2 import Environment, FileSystemLoader
 from twitchAPI.twitch import Twitch
+import pycountry
 
 import settings
 
@@ -26,6 +27,9 @@ if __name__ == '__main__':
     for streamer in data:
         profile_image_url = asyncio.run(update_streamer_info(streamer["streamer"]["name"]))
         streamer["streamer"]["profile_image_url"] = profile_image_url
+
+        language = pycountry.languages.get(alpha_2=streamer["streamer"]["language"])
+        streamer["streamer"]["language_name"] = language.name
 
     content = template.render(data=data, now=datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="minutes"))
     with open("output/index_tmp.html", "w") as outfile:

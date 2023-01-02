@@ -249,7 +249,7 @@ Quoted from the website:
 - Currently, the search is limited to the 100 most viewed streams. Anything more and it would just take too long.
 
 - When comparing matches in the final stage `itertools.combinations()` is used, which means when examining `n` streams
-  there are $$\binom{n}{2}$$ possible combinations. Currently, all of those are evaluated. This could become a problem
+  there are $\binom{n}{2}$ possible combinations. Currently, all of those are evaluated. This could become a problem
   when scaling up. (For n=100: 4950 combinations)
 
 Feel free to write me an e-mail at felix-vlr @ buckket.org if you have suggestions on how to improve any of these

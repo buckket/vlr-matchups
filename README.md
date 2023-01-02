@@ -45,7 +45,8 @@ So the problem now boiled down to fetching a number of JPEGs via HTTP. Perfect! 
 using [aiohttp](https://docs.aiohttp.org/en/stable/) this was also extremely
 fast.
 
-[^1]: The delay, or rather the long cache interval turned out not be a problem at all. Check the source code if you want to see
+[^1]: The delay, or rather the long cache interval turned out not be a problem at all. Check the source code if you want
+to see
 why. ;)
 
 ### Score detection
@@ -64,7 +65,8 @@ easy to make an educated guess as to where to find the relevant information in a
 ![OCR preprocessing 1](img/score_1.png)
 
 As mentioned earlier, the resolution is of the preview images is not the greatest. I needed to clean up all that noise
-and especially the compression artifacts. So at first, I used a [Gaussian blur](https://en.wikipedia.org/wiki/Gaussian_blur):
+and especially the compression artifacts. So at first, I used
+a [Gaussian blur](https://en.wikipedia.org/wiki/Gaussian_blur):
 
 ![OCR preprocessing 2](img/score_2.png)
 
@@ -136,7 +138,6 @@ I just scraped all the agent images from the Internet and
 used [template matching](https://docs.opencv.org/4.x/df/dfb/group__imgproc__object.html#ga586ebfb0a7fb604b35a23d85391329be).
 
 ![Agent detection](agents/astra.webp)
-
 
 Each template (agent image) is slid across the input and a value representing the similarity of the overlapping images
 is calculated for every possible position.
@@ -228,6 +229,8 @@ side.
 
 ### Performance
 
+Quoted from the website:
+
 > How slow? About one minute to process 100 streams on a dusty old 2.7 GHz Intel i5. Problem is: Only one core gets
 > used.
 > Ever. One could easily shift all the CPU and memory intensive parts to a separate C++ program later and make use of
@@ -236,10 +239,21 @@ side.
 
 ### Outstanding issues
 
-> Haven’t gone through the trouble to find the game screen inside another container. So if the streamer is using borders
-> or some fancy Picture in Picture magic we’re out of luck, for now.
+- > Haven’t gone through the trouble to find the game screen inside another container. So if the streamer is using
+  borders
+  > or some fancy Picture in Picture magic we’re out of luck, for now.
 
-> Currently, the search is limited to the 100 most viewed streams.
+    - I’ve tried using a basic SIFT/SURF approach, but the thin-lined HUD just does not have good features which could
+      be easily matched. I’m open to suggestions for a better approach to handle this problem.
+
+- Currently, the search is limited to the 100 most viewed streams. Anything more and it would just take too long.
+
+- When comparing matches in the final stage `itertools.combinations()` is used, which means when examining `n` streams
+  there are $$\binom{n}{2}$$ possible combinations. Currently, all of those are evaluated. This could become a problem
+  when scaling up. (For n=100: 4950 combinations)
+
+Feel free to write me an e-mail at felix-vlr @ buckket.org if you have suggestions on how to improve any of these
+problems. Much appreciated!
 
 ## Installation
 

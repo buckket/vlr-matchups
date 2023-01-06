@@ -1,4 +1,5 @@
 import asyncio
+import concurrent.futures
 import copy
 import glob
 import itertools
@@ -348,9 +349,6 @@ if __name__ == '__main__':
     agent_images = glob.glob("*.webp", root_dir="agents")
     AGENTS = [Agent(x) for x in agent_images]
 
-    tess_api = PyTessBaseAPI(oem=0, psm=6)
-    tess_api.SetVariable("tessedit_char_whitelist", "0123456789")
-
     games = []
 
     while True:
@@ -380,16 +378,29 @@ if __name__ == '__main__':
 
         asyncio.run(fetch_images_with_concurrency(20, games))
 
-        ocr_failed = 0
-        for game in games:
-            game.load_image()
+
+        def work_on_game(game):
+            tess_api = PyTessBaseAPI(oem=0, psm=6)
+            tess_api.SetVariable("tessedit_char_whitelist", "0123456789")
+            if not game.load_image():
+                return game
             game.ocr(tess_api)
             game.update_agents()
             game.unload_image()
             game.print()
             game.reset_playing()
-            if not game.ocr_success:
-                ocr_failed += 1
+            return game
+
+
+        ocr_failed = 0
+
+        games_new = []
+        with concurrent.futures.ProcessPoolExecutor() as executor:
+            for x in executor.map(work_on_game, games, chunksize=10):
+                if not x.ocr_success:
+                    ocr_failed += 1
+                games_new.append(x)
+        games = games_new
 
         logging.info("OCR success rate: {:.2f}".format((len(games) - ocr_failed) / len(games)))
 

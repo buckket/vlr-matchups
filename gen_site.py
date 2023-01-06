@@ -3,19 +3,11 @@ import datetime
 import json
 import os
 
-import twitchAPI.helper
+import pycountry
 from jinja2 import Environment, FileSystemLoader
 from twitchAPI.twitch import Twitch
-import pycountry
 
 import settings
-
-
-async def update_streamer_info(login_name):
-    twitch = await Twitch(settings.TWITCH_APP_ID, settings.TWITCH_APP_SECRET)
-    streamer = await twitchAPI.helper.first(twitch.get_users(logins=[login_name]))
-    return streamer.profile_image_url
-
 
 if __name__ == '__main__':
     environment = Environment(loader=FileSystemLoader("templates/"))
@@ -24,9 +16,25 @@ if __name__ == '__main__':
     with open("data.json", "r") as infile:
         data = json.load(infile)
 
+
+    async def get_profile_images():
+        twitch = await Twitch(settings.TWITCH_APP_ID, settings.TWITCH_APP_SECRET)
+        streamer_names = [x["streamer"]["name"] for x in data]
+        if not streamer_names:
+            return {}
+
+        users = twitch.get_users(logins=streamer_names)
+
+        info = {}
+        async for x in users:
+            info[x.login] = x.profile_image_url
+        return info
+
+
+    info = asyncio.run(get_profile_images())
+
     for streamer in data:
-        profile_image_url = asyncio.run(update_streamer_info(streamer["streamer"]["name"]))
-        streamer["streamer"]["profile_image_url"] = profile_image_url
+        streamer["streamer"]["profile_image_url"] = info[streamer["streamer"]["name"]]
 
         language = pycountry.languages.get(alpha_2=streamer["streamer"]["language"])
         streamer["streamer"]["language_name"] = language.name

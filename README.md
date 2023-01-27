@@ -166,6 +166,10 @@ Then I just compress the image accordingly, effectively restoring the normal asp
 
 Now the template matching works flawlessly again!
 
+### Doing it the YOLO way
+
+<a href="https://colab.research.google.com/github/buckket/vlr-matchups/blob/master/vlr_matchups.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a>
+
 ### Comparing results
 
 If all goes well I end up with information similar to this one for every stream:

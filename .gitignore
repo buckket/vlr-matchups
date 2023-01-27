@@ -5,3 +5,9 @@ output
 tmp
 env
 data.json
+dataset/images/
+dataset/images_raw/
+dataset/labels.cache
+dataset/labels/
+dataset/labels_raw/
+dataset/needs_work/

@@ -1,0 +1,76 @@
+path: /home/buckket/src/vlr-matchups/dataset/  # dataset root dir
+train: autosplit_train.txt  # train images (relative to 'path') 128 images
+val: autosplit_val.txt  # val images (relative to 'path') 128 images
+test: autosplit_test.txt # test images (optional)
+
+names:
+  0: score_0
+  1: score_1
+  2: score_2
+  3: score_3
+  4: score_4
+  5: score_5
+  6: score_6
+  7: score_7
+  8: score_8
+  9: score_9
+  10: score_10
+  11: score_11
+  12: score_12
+  13: score_13
+  14: score_14
+  15: score_15
+  16: score_16
+  17: score_17
+  18: score_18
+  19: score_19
+  20: score_20
+  21: score_21
+  22: score_22
+  23: score_23
+  24: score_24
+  25: score_25
+  26: score_26
+  27: score_27
+  28: score_28
+  29: score_29
+  30: astra
+  31: breach
+  32: brimstone
+  33: chamber
+  34: cypher
+  35: fade
+  36: harbor
+  37: jett
+  38: kayo
+  39: killjoy
+  40: neon
+  41: omen
+  42: phoenix
+  43: raze
+  44: reyna
+  45: sage
+  46: skye
+  47: sova
+  48: viper
+  49: yoru
+  50: astra_flipped
+  51: breach_flipped
+  52: brimstone_flipped
+  53: chamber_flipped
+  54: cypher_flipped
+  55: fade_flipped
+  56: harbor_flipped
+  57: jett_flipped
+  58: kayo_flipped
+  59: killjoy_flipped
+  60: neon_flipped
+  61: omen_flipped
+  62: phoenix_flipped
+  63: raze_flipped
+  64: reyna_flipped
+  65: sage_flipped
+  66: skye_flipped
+  67: sova_flipped
+  68: viper_flipped
+  69: yoru_flipped

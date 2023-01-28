@@ -170,6 +170,23 @@ Now the template matching works flawlessly again!
 
 <a href="https://colab.research.google.com/github/buckket/vlr-matchups/blob/master/vlr_matchups.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a>
 
+The aforementioned method of extracting all necessary information yielded satisfactory results.
+By choosing a conservative threshold for both the OCR and agent detection, to avoid false-positives, it was now easily possible to automatically build a large dataset of correctly annotated images.
+
+Using a computer vision AI like [YOLOv5](https://github.com/ultralytics/yolov5), a custom model can then be trained on this specific dataset.
+
+Here, the YOLOv5s model was used as a starting point.
+Training continued for 100 epochs with a batch size of 64 on a dataset containing 60.000 annotated images.
+
+The final training result is shown here:
+
+TODO
+
+Instead of a dedicated OCR step the score numbers just have been treated as just another class the YOLO model was trained on.
+This speeds ob the detection process immensely as it indeed only takes one look  now to extract all needed information.
+
+Theoretically it's now also possible to export the model to Tensorflow.js and do the inference directly in the browser without needing a server at all.
+
 ### Comparing results
 
 If all goes well I end up with information similar to this one for every stream:

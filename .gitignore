@@ -11,3 +11,5 @@ dataset/labels.cache
 dataset/labels/
 dataset/labels_raw/
 dataset/needs_work/
+dataset/work_done/
+dataset/autosplit_*

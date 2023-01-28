@@ -2,11 +2,16 @@ import asyncio
 import concurrent.futures
 import copy
 import glob
+import io
 import itertools
 import json
 import logging
+import os
 import random
+import shutil
 import subprocess
+import time
+import uuid
 
 import aiofiles
 import aiohttp
@@ -66,6 +71,9 @@ class Game:
         self.playing_with = set()
         self.playing_against = set()
 
+        self.annotation = io.StringIO()
+        self.uuid = ""
+
     def __hash__(self):
         return hash(self.streamer)
 
@@ -121,14 +129,26 @@ class Game:
         if self.img is None:
             return False
         self.img = cv2.resize(self.img, (1920, 1080), interpolation=cv2.INTER_AREA)
+        self.uuid = uuid.uuid1()
         return True
 
     def unload_image(self):
         self.img = None
 
-    def update_agents(self, threshold=0.75):
-        if not self.ocr_success:
-            return
+    def save_annotations(self):
+        if not self.annotation.tell():
+            os.remove("tmp/{}.jpg".format(self.streamer.name))
+            return False
+        with open("dataset/labels_raw/{}_{}.txt".format(self.streamer.name, self.uuid), "w") as f:
+            f.write(self.annotation.getvalue())
+        shutil.move("tmp/{}.jpg".format(self.streamer.name),
+                    "dataset/images_raw/{}_{}.jpg".format(self.streamer.name, self.uuid))
+        self.annotation = io.StringIO()
+        return True
+
+    def update_agents(self, threshold=0.70):
+        # if not self.ocr_success:
+        #    return
 
         header = self.img[0:100, :]
         y, x = header.shape[:2]
@@ -137,11 +157,14 @@ class Game:
             logging.info("Images is stretched, resizing")
             header = cv2.resize(header, (1920 - self.correction, y), interpolation=cv2.INTER_AREA)
             y, x = header.shape[:2]
+            stretch_factor = 1920 / (1920 - self.correction)
+        else:
+            stretch_factor = 1.0
 
         img_own = header[:, (350 - self.correction // 2):x // 2 - 80]
         img_enemy = cv2.flip(header[:, x // 2 + 80:x - (350 - self.correction // 2)], 1)
 
-        for agent in AGENTS:
+        for i, agent in enumerate(AGENTS):
             w, h = agent.img.shape[:-1]
 
             res = cv2.matchTemplate(img_own, agent.img, cv2.TM_CCOEFF_NORMED, None, agent.mask)
@@ -151,7 +174,15 @@ class Game:
             #    print("{}: {}".format(agent.name, max_val))
 
             if max_val >= threshold and max_val != np.inf:
-                # cv2.rectangle(img_own, max_loc, (max_loc[0] + w, max_loc[1] + h), (0, 0, 255), 2)
+                a_x, a_y = max_loc
+                a_x = a_x + 350 - self.correction // 2
+                a_x = a_x * stretch_factor
+                a_x_max, a_y_max = (a_x + w * stretch_factor, a_y + h)
+
+                self.annotation.write("{} {} {} {} {}\n".format(i + 30, ((a_x + a_x_max) / 2) / 1920,
+                                                                ((a_y + a_y_max) / 2) / 1080,
+                                                                (a_x_max - a_x) / 1920,
+                                                                (a_y_max - a_y) / 1080))
                 self.team_own.add(agent.name)
 
             res = cv2.matchTemplate(img_enemy, agent.img, cv2.TM_CCOEFF_NORMED, None, agent.mask)
@@ -161,7 +192,17 @@ class Game:
             #    print("{}: {}".format(agent.name, max_val))
 
             if max_val >= threshold and max_val != np.inf:
-                # cv2.rectangle(img_enemy, max_loc, (max_loc[0] + w, max_loc[1] + h), (0, 0, 255), 2)
+                a_x_max, a_y = max_loc
+                if self.correction > 20:
+                    a_x_max = (1920 - self.correction) - (a_x_max + 350 - self.correction // 2)
+                else:
+                    a_x_max = 1920 - (a_x_max + 350 - self.correction // 2)
+                a_x_max = a_x_max * stretch_factor
+                a_x, a_y_max = (a_x_max - w * stretch_factor, a_y + h)
+                self.annotation.write("{} {} {} {} {}\n".format(i + len(AGENTS) + 30, ((a_x + a_x_max) / 2) / 1920,
+                                                                ((a_y + a_y_max) / 2) / 1080,
+                                                                (a_x_max - a_x) / 1920,
+                                                                (a_y_max - a_y) / 1080))
                 self.team_enemy.add(agent.name)
 
             if len(self.team_own) > 5 or len(self.team_enemy) > 5:
@@ -186,29 +227,39 @@ class Game:
             tess_api.Recognize()
             try:
                 words = tess_api.MapWordConfidences()
+
+                # Calculate MBR of all words
+                words_pos = tess_api.GetWords()
+                min_x = min([word[1]["x"] for word in words_pos], default=0)
+                max_x = max([word[1]["x"] + word[1]["w"] for word in words_pos], default=0)
+                min_y = min([word[1]["y"] for word in words_pos], default=0)
+                max_y = max([word[1]["y"] + word[1]["h"] for word in words_pos], default=0)
             except RuntimeError:
-                return ""
+                return "", None
 
             for x in words:
                 if x[1] < 70.0:
-                    return ""
+                    return "", None
 
             text = "".join(["".join(x[0].split()) for x in words])
-            return text
+            return text, (min_x // 2 + 750 - 5,
+                          min_y // 2 + 30 - 5,
+                          max_x // 2 + 750 + 5,
+                          max_y // 2 + 30 + 5)
 
         def binary_threshold(img, threshold=210, retries=0):
             if retries > 5 or threshold > 254:
-                return "", 0
+                return "", 0, None
 
             _, text_bin = cv2.threshold(img, threshold, 255, cv2.THRESH_BINARY_INV)
 
             if np.mean(text_bin) >= 255:
-                return "", 0
+                return "", 0, None
 
             kernel = np.ones((3, 3), np.uint8)
             text_bin = cv2.erode(text_bin, kernel, iterations=1)
 
-            tess = run_pytesseract(text_bin)
+            tess, bounding = run_pytesseract(text_bin)
             if not tess:
                 return binary_threshold(img, threshold + 4, retries + 1)
 
@@ -217,22 +268,44 @@ class Game:
                 M = cv2.moments(~text_bin)
                 c_x = int(M["m10"] / M["m00"])
             except ZeroDivisionError:
-                return "", 0
+                return "", 0, None
 
-            return tess, c_x
+            # bounding = cv2.boundingRect(~text_bin)
+            # bounding = (bounding[0] // 2 + 750 - 5,
+            #            bounding[1] // 2 + 30 - 5,
+            #            bounding[0] // 2 + 750 + bounding[2] // 2 + 5,
+            #            bounding[1] // 2 + 30 + bounding[3] // 2 + 5)
+
+            return tess, c_x, bounding
 
         img_own = text[:, :300]
         img_enemy = text[:, -300:]
 
-        own, own_x = binary_threshold(img_own, 225)
+        own, own_x, own_bounding = binary_threshold(img_own, 225)
         if own:
-            enemy, enemy_x = binary_threshold(img_enemy, 225)
+            enemy, enemy_x, enemy_bounding = binary_threshold(img_enemy, 225)
         else:
             enemy = ""
 
         ret = self.update_score(own, enemy)
         if ret:
             self.correction = round(abs(own_x - enemy_x) * 0.1) * 20
+            # cv2.rectangle(self.img, (own_bounding[0], own_bounding[1]),
+            #              (own_bounding[2], own_bounding[3]), (0, 255, 0), 2)
+            # cv2.imshow("temp", self.img)
+            # cv2.waitKey(0)
+
+            self.annotation.write("{} {} {} {} {}\n".format(own,
+                                                            ((own_bounding[0] + own_bounding[2]) / 2) / 1920,
+                                                            ((own_bounding[1] + own_bounding[3]) / 2) / 1080,
+                                                            (own_bounding[2] - own_bounding[0]) / 1920,
+                                                            (own_bounding[3] - own_bounding[1]) / 1080))
+            self.annotation.write("{} {} {} {} {}\n".format(enemy,
+                                                            ((enemy_bounding[0] + 270 + enemy_bounding[
+                                                                2] + 270) / 2) / 1920,
+                                                            ((enemy_bounding[1] + enemy_bounding[3]) / 2) / 1080,
+                                                            (enemy_bounding[2] - enemy_bounding[0]) / 1920,
+                                                            (enemy_bounding[3] - enemy_bounding[1]) / 1080))
         if ret and not self.ocr_success:
             self.ocr_success = True
             self.ocr_fails = 0
@@ -346,8 +419,15 @@ if __name__ == '__main__':
 
     game_id = asyncio.run(get_game_id())
 
-    agent_images = glob.glob("*.webp", root_dir="agents")
+    agent_images = sorted(glob.glob("*.webp", root_dir="agents"))
     AGENTS = [Agent(x) for x in agent_images]
+
+    for i in range(30):
+        print("  {}: score_{}".format(i, i))
+    for i, agent in enumerate(AGENTS, 30):
+        print("  {}: {}".format(i, agent.name))
+    for i, agent in enumerate(AGENTS, 30 + len(AGENTS)):
+        print("  {}: {}_flipped".format(i, agent.name))
 
     games = []
 
@@ -387,6 +467,7 @@ if __name__ == '__main__':
             game.ocr(tess_api)
             game.update_agents()
             game.unload_image()
+            game.save_annotations()
             game.print()
             game.reset_playing()
             return game
@@ -438,3 +519,5 @@ if __name__ == '__main__':
             outfile.write(json.dumps([x.to_dict() for x in matches_sorted], indent=4))
 
         subprocess.run(["python", "gen_site.py"])
+
+        time.sleep(120)

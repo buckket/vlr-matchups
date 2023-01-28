@@ -48,6 +48,8 @@ if __name__ == '__main__':
                 shutil.copy("dataset/images/" + basename + ".jpg", "dataset/needs_work/" + basename + ".jpg")
             if not os.path.exists("dataset/needs_work/" + label):
                 shutil.copy("dataset/labels/" + label, "dataset/needs_work/" + label)
+            os.remove("dataset/images/" + basename + ".jpg")
+            os.remove("dataset/labels/" + label)
 
         # cv2.imshow("test", img_con)
         # cv2.waitKey(0)

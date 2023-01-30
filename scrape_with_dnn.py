@@ -12,11 +12,14 @@ import uuid
 import aiohttp
 import cv2
 import numpy as np
-import torch
 import twitchAPI.helper
 from twitchAPI.twitch import Twitch
 
 import settings
+
+CONF_THRES = 0.25  # confidence threshold
+IOU_THRES = 0.45  # NMS IOU threshold
+CLASS_NAMES = []
 
 
 class Streamer:
@@ -117,7 +120,7 @@ class Game:
 
         m = np.zeros((640, 640, 3), dtype=np.uint8)
         m[0:200, :, :3] = cv2.vconcat([self.img[0:100, 220:860], self.img[0:100, 1060:-220]])
-        self.img = m[:, :, ::-1]
+        self.img = m
 
         self.uuid = uuid.uuid1()
         return True
@@ -126,13 +129,50 @@ class Game:
         self.img = None
         self.img_data = None
 
-    def detect(self, model):
-        results = model(self.img)
+    def pre_process(self, net):
+        blob = cv2.dnn.blobFromImage(self.img, 1 / 255, (640, 640), swapRB=True, crop=False)
+        net.setInput(blob)
+        return net.forward(net.getUnconnectedOutLayersNames())
 
-        #cv2.imshow("result", np.squeeze(results.render())[:200, :, ::-1])
-        #cv2.waitKey(0)
+    def post_process(self, outputs):
+        class_ids = []
+        confidences = []
+        boxes = []
 
-        df = results.pandas().xyxy[0]
+        # rows = outputs[0].shape[1]
+        rows_filtered = np.where(outputs[0][0][:, 4] > CONF_THRES)[0]
+
+        for r in rows_filtered:
+            row = outputs[0][0][r]
+            confidence = row[4]
+            classes_scores = row[5:]
+            class_id = np.argmax(classes_scores)
+            if classes_scores[class_id] > CONF_THRES:
+                confidences.append(confidence)
+                class_ids.append(class_id)
+                cx, cy, w, h = row[0], row[1], row[2], row[3]
+                left = int((cx - w / 2))
+                top = int((cy - h / 2))
+                width = int(w)
+                height = int(h)
+                box = np.array([left, top, width, height])
+                boxes.append(box)
+
+        indices = cv2.dnn.NMSBoxes(boxes, confidences, CONF_THRES, IOU_THRES)
+
+        result = []
+        for i in indices:
+            result.append({"confidence": confidences[i],
+                           "class": class_ids[i],
+                           "name": CLASS_NAMES[class_ids[i]],
+                           "ymin": boxes[i][1]})
+
+        print(result)
+        return result
+
+    def detect(self, net):
+        output = self.pre_process(net)
+        result = self.post_process(output)
 
         score_own = ""
         score_own_conf = 0.0
@@ -142,8 +182,7 @@ class Game:
 
         to_save = False
 
-        for index, row in df.iterrows():
-            # print("{} {}".format(row["class"], row["confidence"]))
+        for row in result:
             if row["confidence"] < 0.75:
                 to_save = True
                 continue
@@ -179,9 +218,9 @@ class Game:
                 self.ocr_success = False
                 self.reset_team()
 
-        if to_save and len(df):
-            cv2.imwrite("dataset/improve/{}_{}.jpg".format(self.streamer.name, self.uuid), self.img[0:200, :, ::-1])
-            df.to_csv("dataset/improve/{}_{}.csv".format(self.streamer.name, self.uuid))
+        # if to_save and len(df):
+        #    cv2.imwrite("dataset/improve/{}_{}.jpg".format(self.streamer.name, self.uuid), self.img[0:200, :, ::-1])
+        #    df.to_csv("dataset/improve/{}_{}.csv".format(self.streamer.name, self.uuid))
 
         return valid_score
 
@@ -286,8 +325,11 @@ if __name__ == '__main__':
 
     games = []
 
-    model = torch.hub.load('ultralytics/yolov5', 'custom', 'model/best-v3.onnx')
-    # model.conf = 0.50
+    with open("dataset/classes.txt") as f:
+        content = f.read().splitlines()
+        CLASS_NAMES = [x for x in content]
+
+    net = cv2.dnn.readNet("model/best-v3.onnx")
 
     while True:
         old_streamer_list = {x.streamer for x in games}
@@ -323,7 +365,7 @@ if __name__ == '__main__':
 
 
         def work_on_game(game):
-            game.detect(model)
+            game.detect(net)
             game.unload_image()
             game.print()
             game.reset_playing()

@@ -129,8 +129,8 @@ class Game:
     def detect(self, model):
         results = model(self.img)
 
-        cv2.imshow("result", np.squeeze(results.render())[:200, :, ::-1])
-        cv2.waitKey(1000)
+        #cv2.imshow("result", np.squeeze(results.render())[:200, :, ::-1])
+        #cv2.waitKey(0)
 
         df = results.pandas().xyxy[0]
 
@@ -140,8 +140,14 @@ class Game:
         score_enemy = ""
         score_enemy_conf = 0.0
 
+        to_save = False
+
         for index, row in df.iterrows():
             # print("{} {}".format(row["class"], row["confidence"]))
+            if row["confidence"] < 0.75:
+                to_save = True
+                continue
+
             if row["class"] > 29:
                 if row["name"].endswith("_flipped"):
                     self.team_enemy.add(row["name"][:-8])
@@ -167,10 +173,16 @@ class Game:
             self.ocr_fails = 0
         if not valid_score:
             self.ocr_fails += 1
+            to_save = True
             if self.ocr_success and self.ocr_fails >= 3:
                 logging.warning("OCR failed three times in a row, resetting")
                 self.ocr_success = False
                 self.reset_team()
+
+        if to_save and len(df):
+            cv2.imwrite("dataset/improve/{}_{}.jpg".format(self.streamer.name, self.uuid), self.img[0:200, :, ::-1])
+            df.to_csv("dataset/improve/{}_{}.csv".format(self.streamer.name, self.uuid))
+
         return valid_score
 
     def update_score(self, str_own, str_enemy):
@@ -274,7 +286,7 @@ if __name__ == '__main__':
 
     games = []
 
-    model = torch.hub.load('ultralytics/yolov5', 'custom', 'model/best-v2.onnx')
+    model = torch.hub.load('ultralytics/yolov5', 'custom', 'model/best-v3.onnx')
     # model.conf = 0.50
 
     while True:

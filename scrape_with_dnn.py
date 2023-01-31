@@ -6,12 +6,14 @@ import json
 import logging
 import random
 import subprocess
+import sys
 import time
 import uuid
 
 import aiohttp
 import cv2
 import numpy as np
+import onnxruntime
 import twitchAPI.helper
 from twitchAPI.twitch import Twitch
 
@@ -129,28 +131,29 @@ class Game:
         self.img = None
         self.img_data = None
 
-    def pre_process(self, net):
-        blob = cv2.dnn.blobFromImage(self.img, 1 / 255, (640, 640), swapRB=True, crop=False)
-        net.setInput(blob)
-        return net.forward(net.getUnconnectedOutLayersNames())
+    def pre_process(self):
+        img = self.img.transpose((2, 0, 1))
+        img = np.expand_dims(img, 0)
+        img = np.ascontiguousarray(img)
+        img = img.astype(np.float32)
+        img /= 255
+        return img
 
     def post_process(self, outputs):
         class_ids = []
         confidences = []
         boxes = []
 
-        # rows = outputs[0].shape[1]
-        rows_filtered = np.where(outputs[0][0][:, 4] > CONF_THRES)[0]
-
-        for r in rows_filtered:
-            row = outputs[0][0][r]
-            confidence = row[4]
-            classes_scores = row[5:]
+        for r in range(outputs[0].shape[1]):
+            confidence = outputs[0][0][r][4]
+            if confidence < CONF_THRES:
+                continue
+            classes_scores = outputs[0][0][r][5:]
             class_id = np.argmax(classes_scores)
             if classes_scores[class_id] > CONF_THRES:
                 confidences.append(confidence)
                 class_ids.append(class_id)
-                cx, cy, w, h = row[0], row[1], row[2], row[3]
+                cx, cy, w, h = outputs[0][0][r][0], outputs[0][0][r][1], outputs[0][0][r][2], outputs[0][0][r][3]
                 left = int((cx - w / 2))
                 top = int((cy - h / 2))
                 width = int(w)
@@ -170,9 +173,10 @@ class Game:
         print(result)
         return result
 
-    def detect(self, net):
-        output = self.pre_process(net)
-        result = self.post_process(output)
+    def detect(self, session, input_names, output_names):
+        img = self.pre_process()
+        outputs = session.run(output_names, {input_names[0]: img})
+        result = self.post_process(outputs)
 
         score_own = ""
         score_own_conf = 0.0
@@ -325,11 +329,13 @@ if __name__ == '__main__':
 
     games = []
 
-    with open("dataset/classes.txt") as f:
-        content = f.read().splitlines()
-        CLASS_NAMES = [x for x in content]
+    session = onnxruntime.InferenceSession("model/best-v4.onnx")
 
-    net = cv2.dnn.readNet("model/best-v3.onnx")
+    input_names = [x.name for x in session.get_inputs()]
+    output_names = [x.name for x in session.get_outputs()]
+
+    meta = session.get_modelmeta().custom_metadata_map
+    CLASS_NAMES = [x for x in eval(meta["names"]).values()]
 
     while True:
         old_streamer_list = {x.streamer for x in games}
@@ -359,13 +365,9 @@ if __name__ == '__main__':
         asyncio.run(fetch_images_with_concurrency(100, games))
 
 
-        def load_image(game):
-            game.load_image()
-            return game
-
-
         def work_on_game(game):
-            game.detect(net)
+            game.load_image()
+            game.detect(session, input_names, output_names)
             game.unload_image()
             game.print()
             game.reset_playing()
@@ -376,17 +378,10 @@ if __name__ == '__main__':
 
         games_new = []
         with concurrent.futures.ProcessPoolExecutor() as executor:
-            for x in executor.map(load_image, games, chunksize=10):
-                if x.img is not None:
-                    games_new.append(x)
-        games = games_new
-
-        games_new = []
-        for game in games:
-            work_on_game(game)
-            if not game.ocr_success:
-                ocr_failed += 1
-            games_new.append(game)
+            for x in executor.map(work_on_game, games, chunksize=10):
+                if not x.ocr_success:
+                    ocr_failed += 1
+                games_new.append(x)
         games = games_new
 
         logging.info("OCR success rate: {:.2f}".format((len(games) - ocr_failed) / len(games)))
@@ -425,4 +420,4 @@ if __name__ == '__main__':
             outfile.write(json.dumps([x.to_dict() for x in matches_sorted], indent=4))
 
         subprocess.run(["python", "gen_site.py"])
-        time.sleep(60)
+        # time.sleep(60)

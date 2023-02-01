@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>vlr-matchups.net</title>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="description" content="Which Valorant streamer is playing against another one?"/>
+    <meta property="og:title" content="vlr-matchups.net"/>
+    <meta property="og:description" content="Which Valorant streamer is playing against another one?"/>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.9/dist/tf.min.js"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+
+    <style>
+        .playing-with {
+            background-color: rgba(0, 255, 0, 0.03);
+        }
+
+        .playing-against {
+            background-color: rgba(255, 0, 0, 0.03);
+        }
+
+        .card a {
+            color: black;
+        }
+
+        nav {
+            color: white;
+            font-family: 'Operator Mono', 'Source Sans Pro', Menlo, Monaco, Consolas, Courier New, monospace;
+            padding: 1em;
+            background-color: rgba(221, 220, 220, 0.51);
+            box-shadow: 0 0 5px rgba(0, 0, 0, .5);
+        }
+    </style>
+</head>
+
+<body>
+
+<nav class="level">
+    <!-- Left side -->
+    <div class="level-left">
+        <div class="level-item">
+            <p class="subtitle is-4">
+                <a href="/"><strong>vlr-matchups.net</strong></a>
+            </p>
+        </div>
+    </div>
+    <div class="level-item has-text-centered">
+        <span style="color: #485fc7">Who’s playing whom?</span>
+    </div>
+
+    <!-- Right side -->
+    <div class="level-right">
+        <p class="level-item"><a href="about.html">About</a></p>
+        <p class="level-item"><a href="#">Source Code</a></p>
+    </div>
+</nav>
+
+<div class="container" style="margin-top: 3em;">
+    <div class="columns is-multiline" id="app">
+        <div v-for="game in data" class="column is-half" v-bind:id="game.streamer.name">
+            <div class="card">
+                <div class="card-image">
+                    <a v-bind:href="'https://www.twitch.tv/' + game.streamer.name" target="_blank">
+                        <figure class="image">
+                            <canvas v-bind:id="'canvas_' + game.streamer.name + '_final'" width="640"
+                                    height="200"></canvas>
+                        </figure>
+                        <img v-bind:src="'https://static-cdn.jtvnw.net/previews-ttv/live_user_' + game.streamer.name + '-1920x1080.jpg'"
+                             width="0" height="0" @load="onImgLoad" crossorigin='anonymous'
+                             v-bind:alt="game.streamer.name"/>
+                        <canvas hidden v-bind:id="'canvas_' + game.streamer.name" width="640" height="640"></canvas>
+                    </a>
+                </div>
+                <div class="card-content">
+                    <div class="media">
+                        <div class="media-left">
+                            <figure class="image is-48x48">
+                                <img v-if="game.streamer.profile_image_url" class="is-rounded"
+                                     v-bind:src="game.streamer.profile_image_url">
+                            </figure>
+                        </div>
+                        <div class="media-content">
+                            <p class="title is-4"><a
+                                    v-bind:href="'https://www.twitch.tv/' + game.streamer.name"
+                                    target="_blank">{{ game.streamer.name }}</a>
+                            </p>
+                            <p class="subtitle is-6">Viewers: {{ game.streamer.view_count }}</p>
+                        </div>
+                    </div>
+                    <div class="content">
+                        <div class="columns is-multiline">
+                            <div v-if="game.playing_with.length" class="column playing-with">
+                                <p>
+                                    <strong style="text-decoration: underline dotted">Playing with:</strong>
+                                <ul>
+                                    <li v-for="x in game.playing_with"><a v-bind:href="'https://www.twitch.tv/' + x"
+                                                                          target="_blank">{{ x }}</a></li>
+                                </ul>
+                                </p>
+                            </div>
+                            <div v-if="game.playing_against.length" class="column playing-against">
+                                <p>
+                                    <strong style="text-decoration: underline dotted">Playing against:</strong>
+                                <ul>
+                                    <li v-for="x in game.playing_against"><a v-bind:href="'https://www.twitch.tv/' + x"
+                                                                             target="_blank">{{ x }}</a></li>
+                                </ul>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer style="padding: 2em;">
+    <div class="content has-text-centered">
+        buckket // 2023 // contact: felix+vlr at buckket.org<br/>
+        <span style="opacity: 0.5;">Last updated: {{ now }}</span>
+    </div>
+</footer>
+
+</body>
+</html>
+
+<script>
+    const {createApp} = Vue
+    const weights = '../web_model/model.json';
+    const names = ["score_0",
+        "score_1",
+        "score_2",
+        "score_3",
+        "score_4",
+        "score_5",
+        "score_6",
+        "score_7",
+        "score_8",
+        "score_9",
+        "score_10",
+        "score_11",
+        "score_12",
+        "score_13",
+        "score_14",
+        "score_15",
+        "score_16",
+        "score_17",
+        "score_18",
+        "score_19",
+        "score_20",
+        "score_21",
+        "score_22",
+        "score_23",
+        "score_24",
+        "score_25",
+        "score_26",
+        "score_27",
+        "score_28",
+        "score_29",
+        "astra",
+        "breach",
+        "brimstone",
+        "chamber",
+        "cypher",
+        "fade",
+        "harbor",
+        "jett",
+        "kayo",
+        "killjoy",
+        "neon",
+        "omen",
+        "phoenix",
+        "raze",
+        "reyna",
+        "sage",
+        "skye",
+        "sova",
+        "viper",
+        "yoru",
+        "astra_flipped",
+        "breach_flipped",
+        "brimstone_flipped",
+        "chamber_flipped",
+        "cypher_flipped",
+        "fade_flipped",
+        "harbor_flipped",
+        "jett_flipped",
+        "kayo_flipped",
+        "killjoy_flipped",
+        "neon_flipped",
+        "omen_flipped",
+        "phoenix_flipped",
+        "raze_flipped",
+        "reyna_flipped",
+        "sage_flipped",
+        "skye_flipped",
+        "sova_flipped",
+        "viper_flipped",
+        "yoru_flipped"]
+
+
+    createApp({
+        data() {
+            return {
+                data: null,
+                data_raw: null,
+                model: null,
+                message: '',
+                streamer_name: ''
+            }
+        },
+        methods: {
+            setStreamer() {
+                this.streamer_name = this.data[0].streamer.name;
+            },
+            async getData() {
+                try {
+                    const res = await fetch("../data.json")
+                    this.data_raw = await res.json()
+                } catch (error) {
+                    this.message = 'Could not reach the API: ' + error
+                }
+            },
+            onImgLoad(e) {
+                const c = e.target.nextSibling;
+                const ctx = c.getContext("2d");
+                const image = e.target;
+
+                const c_final = document.getElementById("canvas_" + e.target.alt + "_final");
+                const ctx_final = c_final.getContext("2d");
+
+                ctx.drawImage(image, 220, 0, 640, 100, 0, 0, 640, 100);
+                ctx.drawImage(image, 1060, 0, 640, 100, 0, 100, 640, 100);
+
+                const input = tf.tidy(() => {
+                    return tf.browser.fromPixels(c).div(255.0).expandDims(0);
+                });
+
+                this.model.executeAsync(input).then(res => {
+                    const font = "8px Arial, Helvetica, sans-serif";
+                    ctx.font = font;
+                    ctx.textBaseline = "top";
+
+                    const [boxes, scores, classes, valid_detections] = res;
+                    const boxes_data = boxes.dataSync();
+                    const scores_data = scores.dataSync();
+                    const classes_data = classes.dataSync();
+                    const valid_detections_data = valid_detections.dataSync()[0];
+
+                    tf.dispose(res)
+
+                    var i;
+                    for (i = 0; i < valid_detections_data; ++i) {
+                        let [x1, y1, x2, y2] = boxes_data.slice(i * 4, (i + 1) * 4);
+                        x1 *= c.width;
+                        x2 *= c.width;
+                        y1 *= c.height;
+                        y2 *= c.height;
+                        const width = x2 - x1;
+                        const height = y2 - y1;
+                        const klass = names[classes_data[i]];
+                        const score = scores_data[i].toFixed(2);
+
+                        ctx.strokeStyle = "#FF0000";
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(x1, y1, width, height);
+
+                        ctx.fillStyle = "#eee";
+                        const textWidth = ctx.measureText(klass).width;
+                        const textHeight = parseInt(font, 10); // base 10
+                        ctx.fillRect(x1, y1 - 20, textWidth + 7, textHeight * 2);
+
+                    }
+                    for (i = 0; i < valid_detections_data; ++i) {
+                        let [x1, y1, ,] = boxes_data.slice(i * 4, (i + 1) * 4);
+                        x1 *= c.width;
+                        y1 *= c.height;
+                        const klass = names[classes_data[i]];
+                        const score = scores_data[i].toFixed(2);
+                        const textHeight = parseInt(font, 10); // base 10
+
+                        ctx.fillStyle = "#000000";
+                        ctx.fillText(klass, x1 + 1, y1 - 20);
+                        ctx.fillText(score, x1 + 1, y1 - 20 + textHeight);
+                    }
+
+                    ctx_final.drawImage(c, 0, 0, 640, 200, 0, 0, 640, 200);
+                });
+
+            }
+        },
+        watch: {
+            data_raw(new_data, old_data) {
+                if (window.location.hash) {
+                    const names = window.location.hash.replace("#", "").split(",")
+                    this.data = new_data.filter(function (element) {
+                        return names.includes(element.streamer.name)
+                    })
+                } else {
+                    this.data = new_data.slice(0, 4);
+                }
+            }
+        }
+        ,
+        created() {
+            tf.loadGraphModel(weights).then(model => {
+                this.model = Object.freeze(model);
+                this.getData();
+            });
+        }
+        ,
+    }).mount('#app')
+</script>

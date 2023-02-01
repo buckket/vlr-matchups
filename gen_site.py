@@ -43,4 +43,7 @@ if __name__ == '__main__':
     with open("output/index_tmp.html", "w") as outfile:
         outfile.write(content)
 
+    with open("data.json", "w") as outfile:
+        outfile.write(json.dumps(data))
+
     os.rename("output/index_tmp.html", "output/index.html")

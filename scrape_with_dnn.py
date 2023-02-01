@@ -118,7 +118,7 @@ class Game:
             return False
         self.img_data = None
 
-        self.img = cv2.resize(self.img, (1920, 1080), interpolation=cv2.INTER_AREA)
+        self.img = cv2.resize(self.img, (1920, 1080), interpolation=cv2.INTER_LINEAR)
 
         m = np.zeros((640, 640, 3), dtype=np.uint8)
         m[0:200, :, :3] = cv2.vconcat([self.img[0:100, 220:860], self.img[0:100, 1060:-220]])
@@ -132,12 +132,7 @@ class Game:
         self.img_data = None
 
     def pre_process(self):
-        img = self.img.transpose((2, 0, 1))
-        img = np.expand_dims(img, 0)
-        img = np.ascontiguousarray(img)
-        img = img.astype(np.float32)
-        img /= 255
-        return img
+        return cv2.dnn.blobFromImage(self.img, 1 / 255, (640, 640), swapRB=True, crop=False)
 
     def post_process(self, outputs):
         class_ids = []
